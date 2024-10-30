@@ -1,0 +1,14 @@
+[package]
+name = "RigidSim"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = "0.14.2"
+
+[profile.dev]
+opt-level = 1 # Use slightly better optimization, so examples work
+
+[[example]]
+name = "rigid_sim_demo"
+path = "examples/rigid_sim_demo.rs"
