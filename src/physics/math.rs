@@ -1,0 +1,48 @@
+use bevy::prelude::*;
+
+const GRAVITY: Vec3 = Vec3::new(0.0, -9.8, 0.0);
+#[derive(Component)]
+pub struct Mass {
+    inv_mass: f32,
+}
+
+impl Default for Mass {
+    fn default() -> Self {
+        Self { inv_mass: 0.0 }
+    }
+}
+
+impl Mass {
+    pub const INFINITY: Mass = Mass { inv_mass: 0.0 };
+    pub fn inverse(&self) -> f32 {
+        self.inv_mass
+    }
+}
+#[derive(Component)]
+pub struct Inertia {
+    inv_inertia: Mat3,
+}
+
+impl Default for Inertia {
+    fn default() -> Self {
+        Self {
+            inv_inertia: Mat3::IDENTITY,
+        }
+    }
+}
+
+impl Inertia {
+    pub const INFINITY: Inertia = Inertia {
+        inv_inertia: Mat3::ZERO,
+    };
+
+    pub fn inverse(&self) -> Mat3 {
+        self.inv_inertia
+    }
+}
+
+#[derive(Component)]
+pub struct CentorOfMass(pub Vec3);
+
+#[derive(Component)]
+pub struct Velocity(pub Vec3);
