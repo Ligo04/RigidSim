@@ -1,10 +1,11 @@
-use bevy::prelude::*;
+use bevy::{ecs::entity::MapEntities, prelude::*, reflect};
 
 use crate::physics::rigidbody::RigidBodyItem;
 
 use super::xpbd_constraint::*;
 
 #[derive(Component, Clone, Copy)]
+// #[reflect(Component, MapEntities)]
 pub struct DistanceJoint {
     pub entity1: Entity,
     pub entity2: Entity,
@@ -16,7 +17,17 @@ pub struct DistanceJoint {
     pub exert_force: Vec3,        // exert force (joint)
 }
 
+impl MapEntities for DistanceJoint {
+    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+        self.entity1 = entity_mapper.map_entity(self.entity1);
+        self.entity2 = entity_mapper.map_entity(self.entity2);
+    }
+}
+
 impl XPBDConstraint for DistanceJoint {
+    fn entities(&self) -> [&Entity; 2] {
+        [&self.entity1, &self.entity2]
+    }
     fn clear_lagrange_multiplier(&mut self) {
         self.lagrange_multiplier = 0.0;
     }

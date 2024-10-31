@@ -1,12 +1,14 @@
 use bevy::prelude::*;
 use RigidSim::plugins::controller::{CameraController, CameraControllerPlugin};
 use RigidSim::plugins::fps_show::FrameShowPlugin;
+use RigidSim::solver::XpbdSolverPlugin;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(FrameShowPlugin)
         .add_plugins(CameraControllerPlugin)
+        .add_plugins(XpbdSolverPlugin)
         .insert_resource(ClearColor(Color::srgb(0.0, 0.0, 0.0)))
         .add_systems(Startup, setup)
         .run();
@@ -57,4 +59,6 @@ fn setup(
             ..default()
         },))
         .id();
+
+    //TODO:add distance joint
 }
