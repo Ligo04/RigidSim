@@ -2,7 +2,7 @@ use bevy::{ecs::query::QueryData, prelude::*};
 
 use super::math::*;
 
-#[derive(Component)]
+#[derive(Component, Clone, Copy)]
 pub enum RigidBodyType {
     Static,
     Dynamic,
@@ -32,7 +32,7 @@ impl RigidBodyType {
     }
 }
 
-#[derive(Component, QueryData)]
+#[derive(QueryData)]
 #[query_data(mutable)]
 pub struct RigidBody {
     entity: Entity,
@@ -41,7 +41,7 @@ pub struct RigidBody {
     center_of_mass: &'static mut CentorOfMass,
     inertia: &'static mut Inertia,
     velocity: &'static mut Velocity,
-    angular_velocity: &'static mut Inertia,
+    angular_velocity: &'static mut Velocity,
     prev_transform: &'static mut Transform,
 }
 
@@ -50,7 +50,7 @@ impl RigidBody {
         if !self.rigid_type.is_dynamic() {
             Inertia::INFINITY
         } else {
-            Inertia::INFINITY
+            *self.inertia
         }
     }
 

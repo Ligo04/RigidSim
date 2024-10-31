@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 const GRAVITY: Vec3 = Vec3::new(0.0, -9.8, 0.0);
-#[derive(Component)]
+#[derive(Component, Clone, Copy)]
 pub struct Mass {
     inv_mass: f32,
 }
@@ -18,7 +18,7 @@ impl Mass {
         self.inv_mass
     }
 }
-#[derive(Component)]
+#[derive(Component, Clone, Copy)]
 pub struct Inertia {
     inv_inertia: Mat3,
 }
@@ -41,8 +41,8 @@ impl Inertia {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Clone, Copy)]
 pub struct CentorOfMass(pub Vec3);
 
-#[derive(Component)]
+#[derive(Component, Clone, Copy)]
 pub struct Velocity(pub Vec3);

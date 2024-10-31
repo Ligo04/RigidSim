@@ -1,8 +1,8 @@
-use bevy::animation::transition;
+use crate::physics::rigidbody::RigidBodyItem;
 
 pub trait XPBDConstraint {
-    fn solve(&self, dt: f32);
     fn clear_lagrange_multiplier(&mut self);
+    fn solve(&mut self, rigid_bodys: [&mut RigidBodyItem; 2], dt: f32);
 }
 
 pub trait XPBDPositionConstraint: XPBDConstraint {}
