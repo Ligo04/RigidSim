@@ -58,4 +58,5 @@ pub trait XPBDPositionConstraint: XPBDConstraint {
     }
 }
 
+//TODO: implement this trait(Angular Constraint)
 pub trait XPBDAngularConstraint: XPBDConstraint {}
