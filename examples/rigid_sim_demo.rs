@@ -1,7 +1,9 @@
 use bevy::prelude::*;
+use RigidSim::physics::math::Mass;
+use RigidSim::physics::rigidbody::RigidBodyType;
 use RigidSim::plugins::controller::{CameraController, CameraControllerPlugin};
 use RigidSim::plugins::fps_show::FrameShowPlugin;
-use RigidSim::solver::XpbdSolverPlugin;
+use RigidSim::solver::{distance_joint::DistanceJoint, XpbdSolverPlugin};
 
 fn main() {
     App::new()
@@ -42,23 +44,64 @@ fn setup(
     let cube_mesh = meshes.add(Cuboid::default());
     let cube_material = materials.add(Color::srgb(0.8, 0.7, 0.6));
 
+    let chain_distance: f32 = 1.5;
+    let chain_count: i32 = 1;
+    let rest_length: f32 = chain_distance;
+
+    let init_pos_y: f32 = 2.0;
     // Spawn a static cube and a dynamic cube that is connected to it by a distance joint.
-    let static_cube = commands
-        .spawn((PbrBundle {
-            mesh: cube_mesh.clone(),
-            material: cube_material.clone(),
-            transform: Transform::from_xyz(0.0, 2.0, 0.0),
-            ..default()
-        },))
+    let mut cubioc0 = commands
+        .spawn((
+            PbrBundle {
+                mesh: cube_mesh.clone(),
+                material: cube_material.clone(),
+                transform: Transform::from_xyz(0.0, init_pos_y, 0.0),
+                ..default()
+            },
+            RigidBodyType::Static,
+        ))
         .id();
-    let dynamic_cube = commands
-        .spawn((PbrBundle {
-            mesh: cube_mesh,
-            material: cube_material,
-            transform: Transform::from_xyz(-2.0, 1.5, 0.0),
-            ..default()
-        },))
+
+    let cubioc1 = commands
+        .spawn((
+            PbrBundle {
+                mesh: cube_mesh.clone(),
+                material: cube_material.clone(),
+                transform: Transform::from_xyz(2.0, init_pos_y - 1.5, 0.0),
+                ..default()
+            },
+            RigidBodyType::Dynamic,
+        ))
         .id();
 
     //TODO:add distance joint
+    commands.spawn(
+        DistanceJoint::new(cubioc0, cubioc1)
+            .set_anchor2(0.5 * Vec3::ONE)
+            .set_rest_length(rest_length),
+    );
+
+    for i in 1..chain_count {
+        cubioc0 = cubioc1;
+        let cubioc1 = commands
+            .spawn((
+                PbrBundle {
+                    mesh: cube_mesh.clone(),
+                    material: cube_material.clone(),
+                    transform: Transform::from_xyz(
+                        2.0,
+                        init_pos_y - (i + 1) as f32 * chain_distance,
+                        0.0,
+                    ),
+                    ..default()
+                },
+                RigidBodyType::Dynamic,
+            ))
+            .id();
+        commands.spawn(
+            DistanceJoint::new(cubioc0, cubioc1)
+                .set_anchor2(0.5 * Vec3::ONE)
+                .set_rest_length(rest_length),
+        );
+    }
 }

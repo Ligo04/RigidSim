@@ -34,19 +34,19 @@ impl RigidBodyType {
 
 #[derive(QueryData)]
 #[query_data(mutable)]
-pub struct RigidBody {
+pub struct RigidBodyQuery {
     pub entity: Entity,
     pub rigid_type: Ref<'static, RigidBodyType>,
     pub mass: &'static mut Mass,
     pub center_of_mass: &'static mut CentorOfMass,
     pub inertia: &'static mut Inertia,
     pub velocity: &'static mut Velocity,
-    pub angular_velocity: &'static mut Velocity,
-    pub prev_transform: &'static mut Transform,
-    pub accu_transform: &'static mut Transform,
+    pub angular_velocity: &'static mut AngularVelocity,
+    pub prev_transform: &'static mut PrevTransform,
+    pub curr_transform: &'static mut CurrTransform,
 }
 
-impl<'w> RigidBodyItem<'w> {
+impl<'w> RigidBodyQueryItem<'w> {
     pub fn compute_world_inv_interia(&self) -> Inertia {
         if !self.rigid_type.is_dynamic() {
             Inertia::INFINITY
@@ -63,13 +63,8 @@ impl<'w> RigidBodyItem<'w> {
         }
     }
 
-    pub fn compute_generalized_inverse_mass(&self, normal: Vec3, r: Vec3) -> f32 {
-        if self.rigid_type.is_dynamic() {
-            let rn = r.cross(normal);
-            let interia = self.compute_world_inv_interia();
-            self.mass.inverse() + rn.dot(interia.inverse() * rn)
-        } else {
-            0.0
-        }
+    // TODO: implement this
+    pub fn get_world_curr_position(&self) -> Vec3 {
+        self.curr_transform.0.translation
     }
 }

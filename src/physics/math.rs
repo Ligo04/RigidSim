@@ -41,8 +41,16 @@ impl Inertia {
     }
 }
 
-#[derive(Component, Clone, Copy)]
+#[derive(Component, Clone, Copy, Default)]
 pub struct CentorOfMass(pub Vec3);
 
-#[derive(Component, Clone, Copy)]
+#[derive(Component, Clone, Copy, Default)]
 pub struct Velocity(pub Vec3);
+
+#[derive(Component, Clone, Copy, Default)]
+pub struct AngularVelocity(pub Vec3);
+
+#[derive(Component, Clone, Copy, Default)]
+pub struct CurrTransform(pub Transform);
+#[derive(Component, Clone, Copy, Default)]
+pub struct PrevTransform(pub Transform);
