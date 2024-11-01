@@ -158,4 +158,36 @@ pub trait XPBDAngularConstraint: XPBDConstraint {
     fn compute_torque(&self, lagrange: f32, normal: Vec3, dt: f32) -> Vec3 {
         lagrange * normal / dt.powi(2)
     }
+
+    fn project_linear_velocity(&self, body: &mut RigidBodyQueryItem, dt: f32) {
+        // v = (x - x_prev) / h
+        if body.rigid_type.is_dynamic() {
+            let delta_vec =
+                (body.curr_transform.0.translation - body.prev_transform.0.translation) / dt;
+            body.velocity.0 = delta_vec;
+        } else {
+            body.velocity.0 = Vec3::ZERO;
+        }
+    }
+
+    fn project_angular_velocity(&self, body: &mut RigidBodyQueryItem, dt: f32) {
+        // delta_q = q * q_prev^-1
+        // w = 2[delta_q_x,delta_q_y,delta_q_z] / h
+        // w = delta_q>0 ? w : -w
+        if body.rigid_type.is_dynamic() {
+            let delta_q = body
+                .curr_transform
+                .0
+                .rotation
+                .mul_quat(body.prev_transform.0.rotation.inverse());
+            let delta_w = 2.0 * delta_q.xyz() / dt;
+            if delta_q.w > 0.0 {
+                body.angular_velocity.0 += delta_w;
+            } else {
+                body.angular_velocity.0 -= delta_w;
+            }
+        } else {
+            body.angular_velocity.0 = Vec3::ZERO;
+        }
+    }
 }
