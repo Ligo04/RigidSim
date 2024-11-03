@@ -1,38 +1,45 @@
 use bevy::{ecs::query::QueryData, prelude::*};
 
-use super::math::*;
+use super::compoment::*;
 
-#[derive(Component, Clone, Copy)]
-pub enum RigidBodyType {
-    Static,
-    Dynamic,
-    Kinematic, // not implemented
+#[derive(Bundle, Default)]
+pub struct RigidBodyBundle {
+    pub pbr_bundle: PbrBundle,
+    pub rigid_type: RigidBodyType,
+    pub mass: Mass,
+    pub inertia: Inertia,
+    pub center_of_mass: CentorOfMass,
+    pub velocity: Velocity,
+    pub angular_velocity: AngularVelocity,
+    pub prev_transform: PrevTransform,
 }
 
-impl RigidBodyType {
-    pub fn is_static(&self) -> bool {
-        match self {
-            RigidBodyType::Static => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_dynamic(&self) -> bool {
-        match self {
-            RigidBodyType::Dynamic => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_kinematic(&self) -> bool {
-        match self {
-            RigidBodyType::Kinematic => true,
-            _ => false,
+impl RigidBodyBundle {
+    pub fn new_cuboid(
+        mesh: &mut ResMut<Assets<Mesh>>,
+        material: Handle<StandardMaterial>,
+        transform: Transform,
+        rigid_type: RigidBodyType,
+        size: Vec3,
+        density: f32,
+    ) -> Self {
+        let mass = size.x * size.y * size.z * density;
+        Self {
+            pbr_bundle: PbrBundle {
+                mesh: mesh.add(Cuboid::new(size.x, size.y, size.z)),
+                material,
+                transform,
+                ..Default::default()
+            },
+            rigid_type: rigid_type,
+            mass: Mass::new(mass),
+            inertia: Inertia::from_cubiod(size, mass),
+            ..Default::default()
         }
     }
 }
 
-#[derive(QueryData)]
+#[derive(QueryData, Debug)]
 #[query_data(mutable)]
 pub struct RigidBodyQuery {
     pub entity: Entity,
@@ -43,7 +50,7 @@ pub struct RigidBodyQuery {
     pub velocity: &'static mut Velocity,
     pub angular_velocity: &'static mut AngularVelocity,
     pub prev_transform: &'static mut PrevTransform,
-    pub curr_transform: &'static mut CurrTransform,
+    pub curr_transform: &'static mut Transform,
 }
 
 impl<'w> RigidBodyQueryItem<'w> {
@@ -65,6 +72,6 @@ impl<'w> RigidBodyQueryItem<'w> {
 
     // TODO: implement this
     pub fn get_world_curr_position(&self) -> Vec3 {
-        self.curr_transform.0.translation
+        self.curr_transform.translation
     }
 }

@@ -1,13 +1,12 @@
 use bevy::{
-    ecs::entity::MapEntities,
     math::{Quat, Vec3},
     prelude::Entity,
 };
 
 use crate::physics::rigidbody::RigidBodyQueryItem;
 
-pub trait XPBDConstraint: MapEntities {
-    fn entities(&self) -> [&Entity; 2];
+pub trait XPBDConstraint {
+    fn entities(&self) -> [Entity; 2];
     fn clear_lagrange_multiplier(&mut self);
     fn solve(&mut self, rigid_bodys: [&mut RigidBodyQueryItem; 2], dt: f32);
 
@@ -25,8 +24,9 @@ pub trait XPBDConstraint: MapEntities {
             return 0.0;
         }
         // compliance = compliance / h^2
-        let tilde_compliance = compliance / dt.powi(2);
-        (-c - tilde_compliance * lagrance) / (w_sum + tilde_compliance)
+        let total_compliance = compliance / dt.powi(2);
+        // delta_lagrange = (-c - total_compliance * lagrance) / (w_sum + total_compliance)
+        (-c - total_compliance * lagrance) / (w_sum + total_compliance)
     }
 }
 
@@ -63,21 +63,21 @@ pub trait XPBDPositionConstraint: XPBDConstraint {
 
         if body1.rigid_type.is_dynamic() {
             // position  x1  = x1 + p / m1
-            body1.curr_transform.0.translation += inv_mass1 * impulse;
+            body1.curr_transform.translation += inv_mass1 * impulse;
             // rotation
             let mut delta_q = Quat::from_scaled_axis(inv_inertia1.inverse() * r1.cross(impulse));
-            delta_q = delta_q * 0.5 * body1.curr_transform.0.rotation;
-            body1.curr_transform.0.rotation = body1.curr_transform.0.rotation + delta_q;
-            body1.curr_transform.0.rotation = body1.curr_transform.0.rotation.normalize();
+            delta_q = delta_q * 0.5 * body1.curr_transform.rotation;
+            body1.curr_transform.rotation = body1.curr_transform.rotation + delta_q;
+            body1.curr_transform.rotation = body1.curr_transform.rotation.normalize();
         }
         if body2.rigid_type.is_dynamic() {
             // position
-            body2.curr_transform.0.translation -= inv_mass2 * impulse;
+            body2.curr_transform.translation -= inv_mass2 * impulse;
             // rotation
             let mut delta_q = Quat::from_scaled_axis(inv_inertia2.inverse() * r2.cross(impulse));
-            delta_q = delta_q * 0.5 * body2.curr_transform.0.rotation;
-            body2.curr_transform.0.rotation = body2.curr_transform.0.rotation - delta_q;
-            body2.curr_transform.0.rotation = body2.curr_transform.0.rotation.normalize();
+            delta_q = delta_q * 0.5 * body2.curr_transform.rotation;
+            body2.curr_transform.rotation = body2.curr_transform.rotation - delta_q;
+            body2.curr_transform.rotation = body2.curr_transform.rotation.normalize();
         }
 
         impulse
@@ -87,7 +87,12 @@ pub trait XPBDPositionConstraint: XPBDConstraint {
         lagrange * normal / dt.powi(2)
     }
 
-    fn compute_generalized_inverse_mass(body: &RigidBodyQueryItem, normal: Vec3, r: Vec3) -> f32 {
+    fn compute_generalized_inverse_mass(
+        &self,
+        body: &RigidBodyQueryItem,
+        normal: Vec3,
+        r: Vec3,
+    ) -> f32 {
         if body.rigid_type.is_dynamic() {
             let rn: Vec3 = r.cross(normal);
             let interia = body.compute_world_inv_interia();
@@ -98,7 +103,6 @@ pub trait XPBDPositionConstraint: XPBDConstraint {
     }
 }
 
-//TODO: implement this trait(Angular Constraint)
 pub trait XPBDAngularConstraint: XPBDConstraint {
     fn compute_generalized_inverse_mass(body: &RigidBodyQueryItem, normal: Vec3) -> f32 {
         if body.rigid_type.is_dynamic() {
@@ -141,53 +145,21 @@ pub trait XPBDAngularConstraint: XPBDConstraint {
         if body1.rigid_type.is_dynamic() {
             // rotation
             let mut delta_q = Quat::from_scaled_axis(inv_inertia1.inverse() * r1.cross(impulse));
-            delta_q = delta_q * 0.5 * body2.curr_transform.0.rotation;
-            body1.curr_transform.0.rotation = body1.curr_transform.0.rotation + delta_q;
-            body1.curr_transform.0.rotation = body1.curr_transform.0.rotation.normalize();
+            delta_q = delta_q * 0.5 * body2.curr_transform.rotation;
+            body1.curr_transform.rotation = body1.curr_transform.rotation + delta_q;
+            body1.curr_transform.rotation = body1.curr_transform.rotation.normalize();
         }
         if body2.rigid_type.is_dynamic() {
             // rotation
             let mut delta_q = Quat::from_scaled_axis(inv_inertia2.inverse() * r2.cross(impulse));
-            delta_q = delta_q * 0.5 * body2.curr_transform.0.rotation;
-            body1.curr_transform.0.rotation = body1.curr_transform.0.rotation - delta_q;
-            body1.curr_transform.0.rotation = body1.curr_transform.0.rotation.normalize();
+            delta_q = delta_q * 0.5 * body2.curr_transform.rotation;
+            body1.curr_transform.rotation = body1.curr_transform.rotation - delta_q;
+            body1.curr_transform.rotation = body1.curr_transform.rotation.normalize();
         }
         impulse
     }
 
     fn compute_torque(&self, lagrange: f32, normal: Vec3, dt: f32) -> Vec3 {
         lagrange * normal / dt.powi(2)
-    }
-
-    fn project_linear_velocity(&self, body: &mut RigidBodyQueryItem, dt: f32) {
-        // v = (x - x_prev) / h
-        if body.rigid_type.is_dynamic() {
-            let delta_vec =
-                (body.curr_transform.0.translation - body.prev_transform.0.translation) / dt;
-            body.velocity.0 = delta_vec;
-        } else {
-            body.velocity.0 = Vec3::ZERO;
-        }
-    }
-
-    fn project_angular_velocity(&self, body: &mut RigidBodyQueryItem, dt: f32) {
-        // delta_q = q * q_prev^-1
-        // w = 2[delta_q_x,delta_q_y,delta_q_z] / h
-        // w = delta_q>0 ? w : -w
-        if body.rigid_type.is_dynamic() {
-            let delta_q = body
-                .curr_transform
-                .0
-                .rotation
-                .mul_quat(body.prev_transform.0.rotation.inverse());
-            let delta_w = 2.0 * delta_q.xyz() / dt;
-            if delta_q.w > 0.0 {
-                body.angular_velocity.0 += delta_w;
-            } else {
-                body.angular_velocity.0 -= delta_w;
-            }
-        } else {
-            body.angular_velocity.0 = Vec3::ZERO;
-        }
     }
 }
