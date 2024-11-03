@@ -180,11 +180,3 @@ fn debug_draw<C: XPBDConstraint + Component + Joint>(
         }
     }
 }
-
-fn skew(v: Vec3) -> Mat3 {
-    Mat3::from_cols(
-        Vec3::new(0.0, v.z, -v.y),
-        Vec3::new(-v.z, 0.0, v.x),
-        Vec3::new(v.y, -v.x, 0.0),
-    )
-}
