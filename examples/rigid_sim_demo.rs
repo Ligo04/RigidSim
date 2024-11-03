@@ -1,18 +1,42 @@
+use std::env;
+
 use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
+// use bevy::window::Windows;
 use RigidSim::physics::compoment::*;
-use RigidSim::physics::rigidbody::RigidBodyBundle;
+use RigidSim::physics::rigidbody::{RigidBodyBundle, RigidBodyQuery};
 use RigidSim::plugins::controller::{CameraController, CameraControllerPlugin};
 use RigidSim::plugins::fps_show::FrameShowPlugin;
 use RigidSim::solver::{distance_joint::DistanceJoint, XpbdSolverPlugin};
 
+#[derive(Resource, Clone, Copy)]
+struct ChainCount(i32);
+
+#[derive(Resource, Clone, Copy)]
+struct RestDistance(f32);
+
+#[derive(Resource, Clone, Copy)]
+struct CuboidSize(Vec3);
+
 fn main() {
+    let args: Vec<String> = env::args().collect();
+    let size_x: f32 = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(1.0);
+    let size_y: f32 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(1.0);
+    let size_z: f32 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1.0);
+
+    let chain_count: i32 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(1);
+    let distance: f32 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(1.5);
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(FrameShowPlugin)
         .add_plugins(CameraControllerPlugin)
         .add_plugins(XpbdSolverPlugin)
         .insert_resource(ClearColor(Color::srgb(0.0, 0.0, 0.0)))
+        .insert_resource(ChainCount(chain_count))
+        .insert_resource(RestDistance(distance))
+        .insert_resource(CuboidSize(Vec3::new(size_x, size_y, size_z)))
         .add_systems(Startup, setup)
+        .add_systems(Update, select_object)
         .run();
 }
 
@@ -20,12 +44,15 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    chain_count: Res<ChainCount>,
+    rest_distance: Res<RestDistance>,
+    cuboid_size: Res<CuboidSize>,
 ) {
     let cuboid_material = materials.add(Color::srgb(0.8, 0.7, 0.6));
-    let cuboid_size = Vec3::new(1.0, 1.0, 1.0);
+    let cuboid_size = cuboid_size.0;
 
-    let chain_distance: f32 = 1.5;
-    let chain_count: i32 = 10;
+    let chain_distance: f32 = rest_distance.0;
+    let chain_count: i32 = chain_count.0;
     let rest_length: f32 = chain_distance;
 
     let init_pos_y: f32 = 2.0;
@@ -33,7 +60,7 @@ fn setup(
     // camera
     commands.spawn((
         Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 0.0, 1.0 * chain_count as f32)
+            transform: Transform::from_xyz(0.0, 0.0, 5.0 + 1.0 * chain_count as f32)
                 .looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         },
@@ -98,5 +125,35 @@ fn setup(
                 .set_rest_length(rest_length)
                 .set_compliance(0.0),
         );
+    }
+}
+
+fn select_object(
+    mut windows: Query<&mut Window, With<PrimaryWindow>>,
+    mouse_button: Res<ButtonInput<MouseButton>>,
+    query_camera: Query<(&Camera, &GlobalTransform)>,
+    mut bodies: Query<RigidBodyQuery>,
+) {
+    if mouse_button.just_pressed(MouseButton::Left) {
+        for window in windows.iter_mut() {
+            if let Some(cursor_position) = window.cursor_position() {
+                for (camera, camera_transform) in query_camera.iter() {
+                    let ray = camera
+                        .viewport_to_world(camera_transform, cursor_position)
+                        .unwrap();
+                    for body in bodies.iter_mut() {
+                        if let Some(distance) = ray.intersect_plane(
+                            
+                            body.curr_transform.translation,
+                            InfinitePlane3d::new(Vec3::Y),
+                        ) {
+                            println!("entity: {:?} ,distance : {:?}", body.entity, distance);
+                        } else {
+                            return;
+                        };
+                    }
+                }
+            }
+        }
     }
 }
