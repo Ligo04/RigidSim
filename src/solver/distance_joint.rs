@@ -9,6 +9,7 @@ pub trait Joint {
     fn local_anchor2(&self) -> Vec3;
     fn velocity_damping(&self) -> f32;
     fn angular_damping(&self) -> f32;
+    fn force(&self) -> Vec3;
 }
 
 #[derive(Component, Clone, Copy, Debug)]
@@ -20,9 +21,9 @@ pub struct DistanceJoint {
     pub rest_length: f32,         // rest length of the distance joint
     pub lagrange_multiplier: f32, // lagrange multiplier
     pub compliance: f32,          // compliance
-    pub force: Vec3,              // exert force (joint)
     pub velocity_damping: f32,    // velocity damping
     pub angular_damping: f32,     // angular damping
+    pub force: Vec3,              // exert force (joint)
 }
 
 impl Joint for DistanceJoint {
@@ -38,6 +39,9 @@ impl Joint for DistanceJoint {
     fn angular_damping(&self) -> f32 {
         self.angular_damping
     }
+    fn force(&self) -> Vec3 {
+        self.force
+    }
 }
 
 impl XPBDConstraint for DistanceJoint {
@@ -49,6 +53,10 @@ impl XPBDConstraint for DistanceJoint {
     }
     fn solve(&mut self, rigid_bodys: [&mut RigidBodyQueryItem; 2], dt: f32) {
         self.force = self.solve_constraint(rigid_bodys, dt)
+    }
+
+    fn solve_joint_damping(&mut self, rigid_bodys: [&mut RigidBodyQueryItem; 2], dt: f32) {
+        self.solve_joint_damping(rigid_bodys, dt)
     }
 }
 
@@ -125,11 +133,10 @@ impl DistanceJoint {
         let world_r1 = body1.curr_transform.rotation * self.local_anchor1;
         let world_r2 = body2.curr_transform.rotation * self.local_anchor2;
 
-        let p1 = body1.get_world_curr_position() + world_r1;
-        let p2 = body2.get_world_curr_position() + world_r2;
+        let p1 = body1.get_world_position() + world_r1;
+        let p2 = body2.get_world_position() + world_r2;
         let (normal, c) = self.compute_correction_pair(p1, p2);
-
-        if c <= f32::EPSILON {
+        if c.abs() <= f32::EPSILON {
             return Vec3::ZERO;
         }
 
@@ -150,14 +157,66 @@ impl DistanceJoint {
         self.compute_force(self.lagrange_multiplier, normal, dt)
     }
 
+    fn solve_joint_damping(&mut self, rigid_bodys: [&mut RigidBodyQueryItem; 2], dt: f32) {
+        let [body1, body2] = rigid_bodys;
+        let world_r1 = body1.curr_transform.rotation * self.local_anchor1;
+        let world_r2 = body2.curr_transform.rotation * self.local_anchor2;
+
+        // delta_v = (v2 - v1) * min(velocity_damping * dt, 1)
+        let v1 = body1.velocity.0;
+        let v2 = body2.velocity.0;
+        let delta_v = (v2 - v1) * (self.velocity_damping() * dt).min(1.0);
+
+        // delta_omega = (w2 - w1) * min(angular_damping * dt, 1)
+        let omega1 = body1.angular_velocity.0;
+        let omega2 = body2.angular_velocity.0;
+        let delta_omega = (omega2 - omega1) * (self.angular_damping() * dt).min(1.0);
+        let w1 = if body1.rigid_type.is_dynamic() {
+            body1.get_inv_mass()
+        } else {
+            0.0
+        };
+        let w2 = if body2.rigid_type.is_dynamic() {
+            body2.get_inv_mass()
+        } else {
+            0.0
+        };
+        let w_sum = w1 + w2;
+        if w_sum.abs() <= f32::EPSILON {
+            return;
+        }
+
+        if body1.rigid_type.is_dynamic() {
+            // velocity
+            let inv_mass1 = body1.get_inv_mass();
+            // let inv_inertia1 = body1.compute_world_inv_interia();
+            let impluse = delta_v / w_sum;
+            body1.velocity.0 += impluse * inv_mass1;
+            //  angular velocity
+            // impluse = delta_omega / w_sum;
+            // body1.angular_velocity.0 += inv_inertia1 * world_r1.cross(impluse);
+            body1.angular_velocity.0 += delta_omega;
+        }
+        if body2.rigid_type.is_dynamic() {
+            // velocity
+            let inv_mass2: f32 = body2.get_inv_mass();
+            // let inv_inertia2 = body2.compute_world_inv_interia();
+            let impluse = delta_v / w_sum;
+            body2.velocity.0 -= impluse * inv_mass2;
+            //  angular velocity
+            // impluse = delta_omega / w_sum;
+            // body2.angular_velocity.0 -= inv_inertia2 * world_r2.cross(impluse);
+            body1.angular_velocity.0 -= delta_omega;
+        }
+    }
+
     // compute distance joint correction force
     fn compute_correction_pair(&self, pos1: Vec3, pos2: Vec3) -> (Vec3, f32) {
         let delta_x = pos2 - pos1;
         let distance = delta_x.length();
-
         if distance <= f32::EPSILON {
             return (Vec3::ZERO, 0.0);
         }
-        (-delta_x.normalize(), distance - self.rest_length)
+        (-delta_x / distance, distance - self.rest_length)
     }
 }

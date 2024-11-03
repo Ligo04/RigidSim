@@ -56,7 +56,7 @@ impl Mass {
     }
 
     pub fn from_cubiod(size: Vec3, density: f32) -> Self {
-        let volume = size.x * size.y * size.z;
+        let volume = 2.0 * size.x * size.y * size.z;
         let mass = density * volume;
         Self {
             inv_mass: 1.0 / mass,
@@ -97,13 +97,15 @@ impl Inertia {
         }
     }
 
-    pub fn from_cubiod(size: Vec3, mass: f32) -> Self {
+    pub fn from_cubiod(size: Vec3, density: f32) -> Self {
+        let mass = 2.0 * size.x * size.y * size.z * density;
         Self {
             inv_inertia: Mat3::from_diagonal(Vec3::new(
                 1.0 / 12.0 * mass * (size.y * size.y + size.z * size.z), // 1/12 * m * (y^2 + z^2)
                 1.0 / 12.0 * mass * (size.x * size.x + size.z * size.z), // 1/12 * m * (x^2 + z^2)
                 1.0 / 12.0 * mass * (size.x * size.x + size.y * size.y), // 1/12 * m * (x^2 + y^2)
-            )),
+            ))
+            .inverse(),
         }
     }
 

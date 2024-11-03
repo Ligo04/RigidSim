@@ -15,7 +15,7 @@ pub struct RigidBodyBundle {
 }
 
 impl RigidBodyBundle {
-    pub fn new_cuboid(
+    pub fn new_from_cuboid(
         mesh: &mut ResMut<Assets<Mesh>>,
         material: Handle<StandardMaterial>,
         transform: Transform,
@@ -23,7 +23,6 @@ impl RigidBodyBundle {
         size: Vec3,
         density: f32,
     ) -> Self {
-        let mass = size.x * size.y * size.z * density;
         Self {
             pbr_bundle: PbrBundle {
                 mesh: mesh.add(Cuboid::new(size.x, size.y, size.z)),
@@ -31,9 +30,9 @@ impl RigidBodyBundle {
                 transform,
                 ..Default::default()
             },
-            rigid_type: rigid_type,
-            mass: Mass::new(mass),
-            inertia: Inertia::from_cubiod(size, mass),
+            rigid_type,
+            mass: Mass::from_cubiod(size, density),
+            inertia: Inertia::from_cubiod(size, density),
             ..Default::default()
         }
     }
@@ -54,11 +53,11 @@ pub struct RigidBodyQuery {
 }
 
 impl<'w> RigidBodyQueryItem<'w> {
-    pub fn compute_world_inv_interia(&self) -> Inertia {
+    pub fn compute_world_inv_interia(&self) -> Mat3 {
         if !self.rigid_type.is_dynamic() {
-            Inertia::INFINITY
+            Inertia::INFINITY.inverse()
         } else {
-            *self.inertia
+            self.inertia.inverse()
         }
     }
 
@@ -71,7 +70,7 @@ impl<'w> RigidBodyQueryItem<'w> {
     }
 
     // TODO: implement this
-    pub fn get_world_curr_position(&self) -> Vec3 {
+    pub fn get_world_position(&self) -> Vec3 {
         self.curr_transform.translation
     }
 }
