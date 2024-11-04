@@ -127,3 +127,33 @@ pub struct AngularVelocity(pub Vec3);
 pub struct CurrTransform(pub Transform);
 #[derive(Component, Clone, Copy, Default, Debug)]
 pub struct PrevTransform(pub Transform);
+
+#[derive(Component, Clone, Copy, Default, Debug)]
+pub struct ExternelForce {
+    pub force: Vec3,
+    pub torque: Vec3,
+    pub is_persistent: bool,
+}
+
+impl ExternelForce {
+    pub fn new_from_point(
+        force: Vec3,
+        point: Vec3,
+        center_of_mass: Vec3,
+        is_persistent: bool,
+    ) -> ExternelForce {
+        ExternelForce {
+            force,
+            torque: (point - center_of_mass).cross(force),
+            is_persistent,
+        }
+    }
+
+    pub fn clear(&mut self) {
+        if self.is_persistent {
+            return;
+        }
+        self.force = Vec3::ZERO;
+        self.torque = Vec3::ZERO;
+    }
+}

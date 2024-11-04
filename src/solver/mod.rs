@@ -5,7 +5,10 @@ use bevy::prelude::*;
 use distance_joint::{DistanceJoint, Joint};
 use xpbd_constraint::XPBDConstraint;
 
-use crate::physics::rigidbody::{RigidBodyQuery, RigidBodyQueryItem};
+use crate::physics::{
+    compoment::AngularVelocity,
+    rigidbody::{RigidBodyQuery, RigidBodyQueryItem},
+};
 const GRAVITY: Vec3 = Vec3::new(0.0, -9.8, 0.0);
 
 #[derive(Resource, Clone, Copy)]
@@ -23,7 +26,7 @@ impl Plugin for XpbdSolverPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(SubStepCount(6))
             .add_systems(FixedUpdate, XpbdSolverPlugin::substep::<DistanceJoint>)
-            .add_systems(FixedPostUpdate, debug_draw::<DistanceJoint>);
+            .add_systems(FixedPostUpdate, line_draw::<DistanceJoint>);
     }
 }
 
@@ -75,26 +78,41 @@ impl XpbdSolverPlugin {
     fn presolve(&self, bodies: &mut Query<RigidBodyQuery>, dt: f32) {
         let dynamic_bodies = bodies.iter_mut().filter(|b| b.rigid_type.is_dynamic());
         for mut body in dynamic_bodies {
+            let force = body.externel_force.force;
+            let inv_mass = body.get_inv_mass();
             // xprev = x
             body.prev_transform.0.translation = body.curr_transform.translation;
             // v = v + dt * f_ext/m (G)
-            body.velocity.0 += dt * GRAVITY;
+            let linear_acceleration = force * inv_mass + GRAVITY;
+            body.velocity.0 += dt * linear_acceleration;
             // semi-implicit
             body.curr_transform.translation += dt * body.velocity.0;
             // qprev = q
             body.prev_transform.0.rotation = body.curr_transform.rotation;
-            // semi-implicit
-            // w = w + dt * I^-1 * (t_ext - (w x (Iw)))
-            let omega: Vec3 = body.angular_velocity.0;
             let inv_inertia = body.compute_world_inv_interia();
-            let delta_omega = dt * inv_inertia * (-omega.cross(inv_inertia.inverse() * omega));
-            body.angular_velocity.0 += delta_omega;
+            let torque: Vec3 = body.externel_force.torque;
+            let mut angular_acceleration = inv_inertia * torque;
+            let angular_vec = body.angular_velocity.0;
+            // semi-implicit : w = w + dt * I^-1 * (t_ext - (w x (Iw)))
+            // angular_acceleration -=
+            //     inv_inertia * angular_vec.cross(inv_inertia.inverse() * angular_vec);
+            // gryosopic:  w = w + dt * I^-1 * t_ext + (quadratic in omega)
+            // https://box2d.org/files/ErinCatto_NumericalMethods_GDC2015.pdf
+            angular_acceleration += solveGryosopic(
+                body.curr_transform.rotation,
+                inv_inertia.inverse(),
+                angular_vec,
+                dt,
+            );
+            body.angular_velocity.0 += dt * angular_acceleration;
             // detla_q =  dt * 0.5 * [w,0] * q
             let omega = 0.5 * dt * body.angular_velocity.0;
             let delta_q = Quat::from_xyzw(omega.x, omega.x, omega.z, 0.0)
                 .mul_quat(body.curr_transform.rotation);
             body.curr_transform.rotation = body.curr_transform.rotation + delta_q;
             body.curr_transform.rotation = body.curr_transform.rotation.normalize();
+            // clear external force
+            body.externel_force.clear();
         }
     }
 
@@ -109,7 +127,6 @@ impl XpbdSolverPlugin {
         constraint: &mut Query<&mut C>,
         dt: f32,
     ) {
-        // TODO: implement contact
         self.solve_joint_damping(bodies, constraint, dt);
     }
 
@@ -163,7 +180,7 @@ impl XpbdSolverPlugin {
     }
 }
 
-fn debug_draw<C: XPBDConstraint + Component + Joint>(
+fn line_draw<C: XPBDConstraint + Component + Joint>(
     mut gizmos: Gizmos,
     bodies: Query<RigidBodyQuery>,
     constaints: Query<&mut C>,
@@ -179,4 +196,25 @@ fn debug_draw<C: XPBDConstraint + Component + Joint>(
             gizmos.line(point1, point2, LinearRgba::RED);
         }
     }
+}
+
+fn skew(v: Vec3) -> Mat3 {
+    Mat3::from_cols(
+        Vec3::new(0.0, v.z, -v.y),
+        Vec3::new(-v.z, 0.0, v.x),
+        Vec3::new(v.y, -v.x, 0.0),
+    )
+}
+
+fn solveGryosopic(rotation: Quat, inertia: Mat3, angular_vec: Vec3, dt: f32) -> Vec3 {
+    let local_omgea = rotation.inverse() * angular_vec;
+
+    let f = dt * local_omgea.cross(inertia * local_omgea);
+
+    let jacobian = inertia + dt * (skew(local_omgea) * inertia - skew(inertia * local_omgea));
+
+    let delta_omega = -jacobian.inverse() * f;
+
+    let result = rotation * delta_omega;
+    result
 }

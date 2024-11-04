@@ -2,9 +2,8 @@ use bevy::{ecs::query::QueryData, prelude::*};
 
 use super::compoment::*;
 
-#[derive(Bundle, Default)]
-pub struct RigidBodyBundle {
-    pub pbr_bundle: PbrBundle,
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct Rigidbody {
     pub rigid_type: RigidBodyType,
     pub mass: Mass,
     pub inertia: Inertia,
@@ -12,6 +11,20 @@ pub struct RigidBodyBundle {
     pub velocity: Velocity,
     pub angular_velocity: AngularVelocity,
     pub prev_transform: PrevTransform,
+    pub externel_force: ExternelForce,
+}
+#[derive(Bundle, Default)]
+pub struct RigidBodyBundle {
+    pub pbr_bundle: PbrBundle,
+    // pub rigidbody_bundle: Rigidbody,
+    pub rigid_type: RigidBodyType,
+    pub mass: Mass,
+    pub inertia: Inertia,
+    pub center_of_mass: CentorOfMass,
+    pub velocity: Velocity,
+    pub angular_velocity: AngularVelocity,
+    pub prev_transform: PrevTransform,
+    pub externel_force: ExternelForce,
 }
 
 impl RigidBodyBundle {
@@ -33,12 +46,13 @@ impl RigidBodyBundle {
             rigid_type,
             mass: Mass::from_cubiod(size, density),
             inertia: Inertia::from_cubiod(size, density),
+            center_of_mass: CentorOfMass(Vec3::ZERO),
             ..Default::default()
         }
     }
 }
 
-#[derive(QueryData, Debug)]
+#[derive(QueryData, Debug, Component)]
 #[query_data(mutable)]
 pub struct RigidBodyQuery {
     pub entity: Entity,
@@ -50,6 +64,7 @@ pub struct RigidBodyQuery {
     pub angular_velocity: &'static mut AngularVelocity,
     pub prev_transform: &'static mut PrevTransform,
     pub curr_transform: &'static mut Transform,
+    pub externel_force: &'static mut ExternelForce,
 }
 
 impl<'w> RigidBodyQueryItem<'w> {

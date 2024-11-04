@@ -1,14 +1,12 @@
-use std::env;
-
 use bevy::prelude::*;
-use bevy::window::PrimaryWindow;
+use bevy_mod_picking::prelude::*;
+use std::env;
 // use bevy::window::Windows;
 use RigidSim::physics::compoment::*;
-use RigidSim::physics::rigidbody::{RigidBodyBundle, RigidBodyQuery};
+use RigidSim::physics::rigidbody::{RigidBodyBundle, RigidBodyQuery, Rigidbody};
 use RigidSim::plugins::controller::{CameraController, CameraControllerPlugin};
 use RigidSim::plugins::fps_show::FrameShowPlugin;
 use RigidSim::solver::{distance_joint::DistanceJoint, XpbdSolverPlugin};
-
 #[derive(Resource, Clone, Copy)]
 struct ChainCount(i32);
 
@@ -30,13 +28,13 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugins(FrameShowPlugin)
         .add_plugins(CameraControllerPlugin)
+        .add_plugins(DefaultPickingPlugins)
         .add_plugins(XpbdSolverPlugin)
         .insert_resource(ClearColor(Color::srgb(0.0, 0.0, 0.0)))
         .insert_resource(ChainCount(chain_count))
         .insert_resource(RestDistance(distance))
         .insert_resource(CuboidSize(Vec3::new(size_x, size_y, size_z)))
         .add_systems(Startup, setup)
-        .add_systems(Update, select_object)
         .run();
 }
 
@@ -60,7 +58,7 @@ fn setup(
     // camera
     commands.spawn((
         Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 0.0, 5.0 + 1.0 * chain_count as f32)
+            transform: Transform::from_xyz(0.0, 0.0, 9.0 + 1.0 * chain_count as f32)
                 .looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         },
@@ -79,24 +77,31 @@ fn setup(
     });
     // Spawn a static cube and a dynamic cube that is connected to it by a distance joint.
     let mut cubioc0 = commands
-        .spawn(RigidBodyBundle::new_from_cuboid(
-            &mut meshes,
-            cuboid_material.clone(),
-            Transform::from_xyz(0.0, init_pos_y, 0.0),
-            RigidBodyType::Static,
-            Vec3::new(0.1, 0.1, 0.1),
-            1.0,
+        .spawn((
+            RigidBodyBundle::new_from_cuboid(
+                &mut meshes,
+                cuboid_material.clone(),
+                Transform::from_xyz(0.0, init_pos_y, 0.0),
+                RigidBodyType::Static,
+                Vec3::new(0.1, 0.1, 0.1),
+                1.0,
+            ),
+            PickableBundle::default(),
         ))
         .id();
 
     let mut cubioc1 = commands
-        .spawn(RigidBodyBundle::new_from_cuboid(
-            &mut meshes,
-            cuboid_material.clone(),
-            Transform::from_xyz(2.0, init_pos_y - 1.5, 0.0),
-            RigidBodyType::Dynamic,
-            cuboid_size,
-            1.0,
+        .spawn((
+            RigidBodyBundle::new_from_cuboid(
+                &mut meshes,
+                cuboid_material.clone(),
+                Transform::from_xyz(2.0, init_pos_y - 1.5, 0.0),
+                RigidBodyType::Dynamic,
+                cuboid_size,
+                1.0,
+            ),
+            PickableBundle::default(),
+            On::<Pointer<Click>>::run(add_external_force),
         ))
         .id();
 
@@ -104,18 +109,23 @@ fn setup(
         DistanceJoint::new(cubioc0, cubioc1)
             .set_anchor2(0.5 * cuboid_size)
             .set_rest_length(rest_length)
-            .set_compliance(0.0),
+            .set_compliance(0.01)
+            .set_angular_damping(0.1),
     );
     for i in 1..chain_count {
         cubioc0 = cubioc1;
         cubioc1 = commands
-            .spawn(RigidBodyBundle::new_from_cuboid(
-                &mut meshes,
-                cuboid_material.clone(),
-                Transform::from_xyz(2.0, init_pos_y - 1.5 * (i + 1) as f32, 0.0),
-                RigidBodyType::Dynamic,
-                cuboid_size,
-                1.0,
+            .spawn((
+                RigidBodyBundle::new_from_cuboid(
+                    &mut meshes,
+                    cuboid_material.clone(),
+                    Transform::from_xyz(2.0, init_pos_y - 1.5 * (i + 1) as f32, 0.0),
+                    RigidBodyType::Dynamic,
+                    cuboid_size,
+                    1.0,
+                ),
+                PickableBundle::default(),
+                On::<Pointer<Click>>::run(add_external_force),
             ))
             .id();
         commands.spawn(
@@ -123,37 +133,21 @@ fn setup(
                 .set_anchor1(-0.5 * cuboid_size)
                 .set_anchor2(0.5 * cuboid_size)
                 .set_rest_length(rest_length)
-                .set_compliance(0.0),
+                .set_compliance(0.01),
         );
     }
 }
 
-fn select_object(
-    mut windows: Query<&mut Window, With<PrimaryWindow>>,
-    mouse_button: Res<ButtonInput<MouseButton>>,
-    query_camera: Query<(&Camera, &GlobalTransform)>,
-    mut bodies: Query<RigidBodyQuery>,
-) {
-    if mouse_button.just_pressed(MouseButton::Left) {
-        for window in windows.iter_mut() {
-            if let Some(cursor_position) = window.cursor_position() {
-                for (camera, camera_transform) in query_camera.iter() {
-                    let ray = camera
-                        .viewport_to_world(camera_transform, cursor_position)
-                        .unwrap();
-                    for body in bodies.iter_mut() {
-                        if let Some(distance) = ray.intersect_plane(
-                            
-                            body.curr_transform.translation,
-                            InfinitePlane3d::new(Vec3::Y),
-                        ) {
-                            println!("entity: {:?} ,distance : {:?}", body.entity, distance);
-                        } else {
-                            return;
-                        };
-                    }
-                }
-            }
-        }
+fn add_external_force(click: Listener<Pointer<Click>>, mut bodies: Query<RigidBodyQuery>) {
+    let hitdata = click.hit.clone();
+    println!("hitdata: {:?}", hitdata);
+    if let Ok(mut click_body) = bodies.get_mut(click.target) {
+        println!("click_body: {:?}", click_body.entity);
+        let positon = hitdata.position.unwrap();
+        let centor_of_mass = click_body.center_of_mass.0 + click_body.get_world_position();
+        let force: Vec3 = -10000.0 * Vec3::Z;
+        let external_force = ExternelForce::new_from_point(force, positon, centor_of_mass, false);
+        *click_body.externel_force = external_force;
+        println!("click_body.externel_force: {:?}", click_body.externel_force);
     }
 }
