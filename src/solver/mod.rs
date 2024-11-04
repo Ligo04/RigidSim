@@ -5,12 +5,16 @@ use bevy::prelude::*;
 use distance_joint::{DistanceJoint, Joint};
 use xpbd_constraint::XPBDConstraint;
 
-use crate::physics::{
-    compoment::AngularVelocity,
-    rigidbody::{RigidBodyQuery, RigidBodyQueryItem},
-};
-const GRAVITY: Vec3 = Vec3::new(0.0, -9.8, 0.0);
+use crate::physics::rigidbody::{RigidBodyQuery, RigidBodyQueryItem};
 
+const GRAVITY: Vec3 = Vec3::new(0.0, -9.8, 0.0);
+fn skew(v: Vec3) -> Mat3 {
+    Mat3::from_cols(
+        Vec3::new(0.0, v.z, -v.y),
+        Vec3::new(-v.z, 0.0, v.x),
+        Vec3::new(v.y, -v.x, 0.0),
+    )
+}
 #[derive(Resource, Clone, Copy)]
 pub struct SubStepCount(pub u32);
 
@@ -98,7 +102,7 @@ impl XpbdSolverPlugin {
             //     inv_inertia * angular_vec.cross(inv_inertia.inverse() * angular_vec);
             // gryosopic:  w = w + dt * I^-1 * t_ext + (quadratic in omega)
             // https://box2d.org/files/ErinCatto_NumericalMethods_GDC2015.pdf
-            angular_acceleration += solveGryosopic(
+            angular_acceleration += Self::solve_gryosopic(
                 body.curr_transform.rotation,
                 inv_inertia.inverse(),
                 angular_vec,
@@ -178,6 +182,19 @@ impl XpbdSolverPlugin {
             }
         }
     }
+
+    fn solve_gryosopic(rotation: Quat, inertia: Mat3, angular_vec: Vec3, dt: f32) -> Vec3 {
+        let local_omgea = rotation.inverse() * angular_vec;
+
+        let f = dt * local_omgea.cross(inertia * local_omgea);
+
+        let jacobian = inertia + dt * (skew(local_omgea) * inertia - skew(inertia * local_omgea));
+
+        let delta_omega = -jacobian.inverse() * f;
+
+        let result = rotation * delta_omega;
+        result
+    }
 }
 
 fn line_draw<C: XPBDConstraint + Component + Joint>(
@@ -196,25 +213,4 @@ fn line_draw<C: XPBDConstraint + Component + Joint>(
             gizmos.line(point1, point2, LinearRgba::RED);
         }
     }
-}
-
-fn skew(v: Vec3) -> Mat3 {
-    Mat3::from_cols(
-        Vec3::new(0.0, v.z, -v.y),
-        Vec3::new(-v.z, 0.0, v.x),
-        Vec3::new(v.y, -v.x, 0.0),
-    )
-}
-
-fn solveGryosopic(rotation: Quat, inertia: Mat3, angular_vec: Vec3, dt: f32) -> Vec3 {
-    let local_omgea = rotation.inverse() * angular_vec;
-
-    let f = dt * local_omgea.cross(inertia * local_omgea);
-
-    let jacobian = inertia + dt * (skew(local_omgea) * inertia - skew(inertia * local_omgea));
-
-    let delta_omega = -jacobian.inverse() * f;
-
-    let result = rotation * delta_omega;
-    result
 }

@@ -168,9 +168,9 @@ impl DistanceJoint {
         let delta_v = (v2 - v1) * (self.velocity_damping() * dt).min(1.0);
 
         // delta_omega = (w2 - w1) * min(angular_damping * dt, 1)
-        let omega1 = body1.angular_velocity.0;
-        let omega2 = body2.angular_velocity.0;
-        let delta_omega = (omega2 - omega1) * (self.angular_damping() * dt).min(1.0);
+        // let omega1 = body1.angular_velocity.0;
+        // let omega2 = body2.angular_velocity.0;
+        // let delta_omega = (omega2 - omega1) * (self.angular_damping() * dt).min(1.0);
         let w1 = if body1.rigid_type.is_dynamic() {
             body1.get_inv_mass()
         } else {
@@ -189,24 +189,24 @@ impl DistanceJoint {
         if body1.rigid_type.is_dynamic() {
             // velocity
             let inv_mass1 = body1.get_inv_mass();
-            // let inv_inertia1 = body1.compute_world_inv_interia();
+            let inv_inertia1 = body1.compute_world_inv_interia();
             let impluse = delta_v / w_sum;
             body1.velocity.0 += impluse * inv_mass1;
             //  angular velocity
             // impluse = delta_omega / w_sum;
-            // body1.angular_velocity.0 += inv_inertia1 * world_r1.cross(impluse);
-            body1.angular_velocity.0 += delta_omega;
+            body1.angular_velocity.0 += inv_inertia1 * world_r1.cross(impluse);
+            // body1.angular_velocity.0 += delta_omega;
         }
         if body2.rigid_type.is_dynamic() {
             // velocity
             let inv_mass2: f32 = body2.get_inv_mass();
-            // let inv_inertia2 = body2.compute_world_inv_interia();
+            let inv_inertia2 = body2.compute_world_inv_interia();
             let impluse = delta_v / w_sum;
             body2.velocity.0 -= impluse * inv_mass2;
             //  angular velocity
             // impluse = delta_omega / w_sum;
-            // body2.angular_velocity.0 -= inv_inertia2 * world_r2.cross(impluse);
-            body1.angular_velocity.0 -= delta_omega;
+            body2.angular_velocity.0 -= inv_inertia2 * world_r2.cross(impluse);
+            // body1.angular_velocity.0 -= delta_omega;
         }
     }
 

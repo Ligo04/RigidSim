@@ -1,5 +1,5 @@
 [package]
-name = "RigidSim"
+name = "rigid_sim"
 version = "0.1.0"
 edition = "2021"
 
