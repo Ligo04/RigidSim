@@ -1,12 +1,11 @@
 use bevy::prelude::*;
 use bevy_mod_picking::prelude::*;
-use std::env;
-// use bevy::window::Windows;
 use rigid_sim::physics::compoment::*;
 use rigid_sim::physics::rigidbody::{RigidBodyBundle, RigidBodyQuery};
 use rigid_sim::plugins::controller::{CameraController, CameraControllerPlugin};
 use rigid_sim::plugins::fps_show::FrameShowPlugin;
 use rigid_sim::solver::{distance_joint::DistanceJoint, XpbdSolverPlugin};
+use std::env;
 #[derive(Resource, Clone, Copy)]
 struct ChainCount(i32);
 
