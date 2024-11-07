@@ -65,21 +65,20 @@ pub trait XPBDPositionConstraint: XPBDConstraint {
             // position  x1  = x1 + p / m1
             body1.curr_transform.translation += inv_mass1 * impulse;
             // rotation
+            // delta_w = 0.5 * inv_inertia1 * r1.cross(impulse)
+            // q <- q + 0.5 * [delta_w,0] * q
             let delta_w = 0.5 * inv_inertia1 * r1.cross(impulse);
-            let delta_q = Quat::from_xyzw(delta_w.x, delta_w.y, delta_w.z, 0.0)
-                .mul_quat(body1.curr_transform.rotation);
-            body1.curr_transform.rotation = body1.curr_transform.rotation + delta_q;
-            body1.curr_transform.rotation = body1.curr_transform.rotation.normalize();
+            let delta_q = Quat::from_vec4(delta_w.extend(0.0)) * body1.curr_transform.rotation;
+            body1.curr_transform.rotation = (body1.curr_transform.rotation + delta_q).normalize();
         }
         if body2.rigid_type.is_dynamic() {
             // position
             body2.curr_transform.translation -= inv_mass2 * impulse;
             // rotation
+            // q <- q - 0.5 * [delta_w,0] * q
             let delta_w = 0.5 * inv_inertia2 * r2.cross(impulse);
-            let delta_q = Quat::from_xyzw(delta_w.x, delta_w.y, delta_w.z, 0.0)
-                .mul_quat(body2.curr_transform.rotation);
-            body2.curr_transform.rotation = body2.curr_transform.rotation - delta_q;
-            body2.curr_transform.rotation = body2.curr_transform.rotation.normalize();
+            let delta_q = Quat::from_vec4(delta_w.extend(0.0)) * body2.curr_transform.rotation;
+            body2.curr_transform.rotation = (body2.curr_transform.rotation - delta_q).normalize();
         }
 
         impulse
@@ -146,21 +145,18 @@ pub trait XPBDAngularConstraint: XPBDConstraint {
         //TODO: implement this
         if body1.rigid_type.is_dynamic() {
             // rotation
-            let delta_w = inv_inertia1 * r1.cross(impulse);
-            let mut delta_q = Quat::from_xyzw(delta_w.x, delta_w.y, delta_w.z, 0.0)
-                .mul_quat(body2.curr_transform.rotation);
-            delta_q = delta_q * 0.5;
-            body1.curr_transform.rotation = body1.curr_transform.rotation + delta_q;
-            body1.curr_transform.rotation = body1.curr_transform.rotation.normalize();
+            // delta_w = 0.5 * inv_inertia1 * r1.cross(impulse)
+            // q <- q + 0.5 * [delta_w,0] * q
+            let delta_w = 0.5 * inv_inertia1 * r1.cross(impulse);
+            let delta_q = Quat::from_vec4(delta_w.extend(0.0)) * body1.curr_transform.rotation;
+            body1.curr_transform.rotation = (body1.curr_transform.rotation + delta_q).normalize();
         }
         if body2.rigid_type.is_dynamic() {
             // rotation
-            let delta_w = inv_inertia2 * r2.cross(impulse);
-            let mut delta_q = Quat::from_xyzw(delta_w.x, delta_w.y, delta_w.z, 0.0)
-                .mul_quat(body2.curr_transform.rotation);
-            delta_q = delta_q * 0.5;
-            body2.curr_transform.rotation = body2.curr_transform.rotation - delta_q;
-            body2.curr_transform.rotation = body2.curr_transform.rotation.normalize();
+            // q <- q - 0.5 * [delta_w,0] * q
+            let delta_w = 0.5 * inv_inertia2 * r2.cross(impulse);
+            let delta_q = Quat::from_vec4(delta_w.extend(0.0)) * body2.curr_transform.rotation;
+            body2.curr_transform.rotation = (body2.curr_transform.rotation - delta_q).normalize();
         }
         impulse
     }

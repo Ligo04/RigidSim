@@ -137,7 +137,7 @@ fn setup(
 
     commands.spawn(
         DistanceJoint::new(cubioc0, cubioc1)
-            .set_anchor2(0.5 * cuboid_size)
+            .set_anchor2(0.5 * Vec3::new(-cuboid_size.x, cuboid_size.y, cuboid_size.z))
             .set_rest_length(rest_length)
             .set_compliance(compliacne.0)
             .set_velocity_damping(linear_vel_damping.0)
@@ -161,8 +161,8 @@ fn setup(
             .id();
         commands.spawn(
             DistanceJoint::new(cubioc0, cubioc1)
-                .set_anchor1(-0.5 * cuboid_size)
-                .set_anchor2(0.5 * cuboid_size)
+                .set_anchor1(-0.5 * Vec3::new(-cuboid_size.x, cuboid_size.y, cuboid_size.z))
+                .set_anchor2(0.5 * Vec3::new(-cuboid_size.x, cuboid_size.y, cuboid_size.z))
                 .set_rest_length(rest_length)
                 .set_compliance(compliacne.0)
                 .set_velocity_damping(linear_vel_damping.0)

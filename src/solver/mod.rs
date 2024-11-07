@@ -110,12 +110,9 @@ impl XpbdSolverPlugin {
             );
             body.angular_velocity.0 += dt * angular_acceleration;
             // detla_q =  dt * 0.5 * [w,0] * q
-            let omega = 0.5 * dt * body.angular_velocity.0;
-            let delta_q = Quat::from_xyzw(omega.x, omega.x, omega.z, 0.0)
-                .mul_quat(body.curr_transform.rotation);
-            body.curr_transform.rotation = body.curr_transform.rotation + delta_q;
-            body.curr_transform.rotation = body.curr_transform.rotation.normalize();
-            // clear external force
+            let delta_omege = dt * 0.5 * body.angular_velocity.0;
+            let delta_q = Quat::from_vec4(delta_omege.extend(0.0)) * body.curr_transform.rotation;
+            body.curr_transform.rotation = (body.curr_transform.rotation + delta_q).normalize();
             body.externel_force.clear();
         }
     }
@@ -179,7 +176,7 @@ impl XpbdSolverPlugin {
         {
             let q = body.curr_transform.rotation;
             let q_prev = body.prev_transform.0.rotation;
-            let delta_q = q.mul_quat(q_prev.inverse());
+            let delta_q = q * q_prev.inverse();
             let delta_w = 2.0 * delta_q.xyz() / dt;
             if delta_q.w >= 0.0 {
                 body.angular_velocity.0 = delta_w;
