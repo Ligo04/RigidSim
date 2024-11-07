@@ -155,7 +155,10 @@ impl XpbdSolverPlugin {
     }
 
     fn project_linear_velocity(&self, bodies: &mut Query<RigidBodyQuery>, dt: f32) {
-        for mut body in bodies.iter_mut() {
+        for mut body in bodies
+            .iter_mut()
+            .filter(|body| body.rigid_type.is_dynamic())
+        {
             if body.rigid_type.is_dynamic() {
                 // v = (x - x_prev) / h
                 let delta_x = body.curr_transform.translation - body.prev_transform.0.translation;
@@ -170,7 +173,10 @@ impl XpbdSolverPlugin {
         // delta_q = q * q_prev^-1
         // w = 2[delta_q_x,delta_q_y,delta_q_z] / h
         // w = delta_q_w>0 ? w : -w
-        for mut body in bodies.iter_mut() {
+        for mut body in bodies
+            .iter_mut()
+            .filter(|body| body.rigid_type.is_dynamic())
+        {
             let q = body.curr_transform.rotation;
             let q_prev = body.prev_transform.0.rotation;
             let delta_q = q.mul_quat(q_prev.inverse());

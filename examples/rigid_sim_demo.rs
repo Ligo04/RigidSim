@@ -12,6 +12,12 @@ struct ChainCount(i32);
 #[derive(Resource, Clone, Copy)]
 struct RestDistance(f32);
 
+#[derive(Resource)]
+struct FrameCounter {
+    count: usize,
+    max_frames: usize,
+}
+
 #[derive(Resource, Clone, Copy)]
 struct CuboidSize(Vec3);
 
@@ -50,7 +56,12 @@ fn main() {
         .insert_resource(Compliance(compliance))
         .insert_resource(LinearVelDamping(linear_vel_damping))
         .insert_resource(AngularVelDamping(angular_vel_damping))
+        .insert_resource(FrameCounter {
+            count: 0,
+            max_frames: 100,
+        })
         .add_systems(Startup, setup)
+        .add_systems(FixedUpdate, update_frame_counter)
         .run();
 }
 
@@ -171,5 +182,16 @@ fn add_external_force(click: Listener<Pointer<Click>>, mut bodies: Query<RigidBo
         let external_force = ExternelForce::new_from_point(force, positon, centor_of_mass, false);
         *click_body.externel_force = external_force;
         println!("click_body.externel_force: {:?}", click_body.externel_force);
+    }
+}
+
+fn update_frame_counter(
+    mut frame_counter: ResMut<FrameCounter>,
+    mut app_exit_events: EventWriter<AppExit>,
+) {
+    frame_counter.count += 1;
+    // println!("frame_counter.count: {:?}", frame_counter.count);
+    if frame_counter.count >= frame_counter.max_frames / 6 {
+        // app_exit_events.send(AppExit::Success);
     }
 }

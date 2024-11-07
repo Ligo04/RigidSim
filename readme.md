@@ -10,8 +10,8 @@
 
 ## 运行说明
 
-```powershell
-cargo run --example rigid_sim_demo -- 1 1 1 1 1.5 0 0 0
+```powershelle
+cargo run --exampl rigid_sim_demo -- 1 1 1 1 1.5 0 0 0
 ```
 
 参数：
