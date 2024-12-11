@@ -54,7 +54,7 @@ gyroscopic 求解过程如下：
 
 ![image-20241104134729397](.\assets\image-20241104134729397.png)
 
-![image-20241104134753220](D:\Ligo\Project\RigidSim\assets\image-20241104134753220.png)
+![image-20241104134753220](.\assets\image-20241104134753220.png)
 
 ### DistanceJoint
 
